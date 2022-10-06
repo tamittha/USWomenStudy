@@ -1,2 +1,8 @@
 # USWomenStudy
-Data Analytics Senior Research Study
+
+*author*: Tamara Dzolic
+This project is in development, Senior Research Project
+
+#Introduction
+
+
