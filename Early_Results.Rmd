@@ -1,0 +1,177 @@
+---
+title: "Early Results"
+author: "Tamara Dzolic"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+Things to do for friday (Early Results): - descriptive/summary stats;
+data visuals - statistical analysis: - Pearsons correaltion -
+multicolinearity; V/F - Something you started \* Ideally lots of stats
+
+#We know polarization has occured, So NOW WE LOOK AT HOW IT AFFECTS
+WOMEN
+
+#Load in libraries
+
+```{r}
+library(dplyr)
+library(lattice)
+library(ggplot2)
+library(pacman)
+library(tidyr)
+library(vtable)
+library(glmnet)
+```
+
+#Check the working directory
+
+```{r}
+getwd()
+```
+
+#Load in data
+
+```{r}
+#Political Polarization Data for each state
+state_ideology <- read.csv("stateideology_v2018.csv")
+
+#US Women Peace and Security Index Data
+StatTable1 <- read.csv("StatTable1.csv")
+```
+
+#View both datasets
+```{r}
+View(StatTable1)
+View(state_ideology)
+colnames(state_ideology)
+```
+```{r}
+View(StatTable1)
+mean(StatTable1$US.WPS.Index.2020)
+```
+
+
+#Do a join on Georgetowns Womens Peace and Security Index Data
+#And on the state legislatures data 
+
+```{r}
+
+state_ideology <- state_ideology %>%
+  rename(State = ï..State)
+
+#Outer join on both datasets
+df_join = merge(x = state_ideology, 
+                y = StatTable1, by = "State", all=TRUE)
+
+#View results
+View(df_join)
+
+#Change column names 
+df_join <- df_join %>%
+  rename(WPS_Index_rank = ï..US.WPS.Index.rank,
+         WPS_Index_2020 = US.WPS.Index.2020,
+         Working_poor = Working.poor,
+         State_Legislature = State.legislaturec,
+         College_degree = College.degreec,
+         Reropuctive_healthcare_access = Reproductive.healthcare.access,
+         Legal_protection = Legal.protectiona,
+         Discriminatory_norms = Discriminatory.normsb,
+         Maternal_mortality = Maternal.mortalityc,
+         Intimate_partner_violence = Intimate.partner.violence,
+         Gun_deaths = Gun.deathsc.d,
+         Healthcare_affordability = Healthcare.affordability,
+         Community_safety = Community.safetyb
+         )
+
+#Check to make sure column names were changed 
+colnames(df_join)
+```
+#Lets do some summary stats
+
+```{r}
+st(df_join)
+summary(df_join)
+```
+
+```{r}
+ggplot(data = state_ideology, aes(Government_Ideology)) + geom_histogram(aes(binwidth = 0.1), colour = "black", fill = "white") + geom_density(alpha = .2, fill="#FF6666") + xlab("Governemnt Ideologies") + ylab("Frequency")
+```
+
+```{r}
+both_ideologies <- ggplot(data = state_ideology, aes(x = Num_code_for_state, y = Government_Ideology)) + geom_point()
+  
+both_ideologies
+```
+
+#Pearson correlation coefficient between citizens and state legislatures ideology
+
+```{r}
+cor(state_ideology$Citizen_Ideology, state_ideology$Government_Ideology, method = c("pearson"))
+cor.test(state_ideology$Citizen_Ideology, state_ideology$Government_Ideology, method=c("pearson"))
+```
+
+#Moderate correlation score between citizens ideology and goverments.
+#It matters who you vote for, but it matters more how the person you vote for votes
+
+#Lets also do a pearsons correlation coefficient on Government Ideology scores and Georgetowns rank for women in the U.S
+
+```{r}
+cor(df_join$Government_Ideology, df_join$WPS_Index_2020, method = c("pearson"))
+cor.test(df_join$Government_Ideology, df_join$WPS_Index_2020, method=c("pearson"))
+```
+
+#Lets do a LASSO Regression now to test the strengtth of this relationship
+
+```{r}
+colnames(df_join)
+```
+
+```{r MLR}
+fit <- lm(Government_Ideology ~ Employment +
+                             Working_poor +
+                             State_Legislature +
+                             College_degree +
+                             Reropuctive_healthcare_access +
+                             Legal_protection +
+                             Discriminatory_norms +
+                             Intimate_partner_violence +
+                             Gun_deaths +
+                             Healthcare_affordability +
+                             Community_safety,
+                             data = df_join)
+
+summary(fit)
+```
+
+
+
+```{r Lasso}
+#Independent variable (predictor variable)
+#y <- data.matrix(df_join$Government_Ideology)
+
+#Dependent Variable (matrix)
+#x <- data.matrix(df_join[, c('Employment',
+         #                    'Working_poor',
+        #                     'State_Legislature', 
+       #                      'College_degree',
+      #                       'Reropuctive_healthcare_access',
+     #                        'Legal_protection',
+    #                         'Discriminatory_norms',
+   #                          'Intimate_partner_violence',
+  #                           'Gun_deaths',
+ #                            'Healthcare_affordability',
+#                             'Community_safety'
+ #                            )])
+
+#print(y)
+
+#lambda <- 0.01
+
+#best_model <- glmnet(x, y, alpha = 1, lambda = lambda)
+#coef(best_model)
+```
+
