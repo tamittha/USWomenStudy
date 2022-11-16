@@ -1,0 +1,294 @@
+---
+title: "Final_Results"
+author: "Tamara Dzolic"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+#Begin by loading in libraries
+
+```{r Libraries}
+library(dplyr)
+library(lattice)
+library(tidyr)
+library(vtable)
+library(caret)
+library(jtools)
+library(corrplot)
+library(broom)
+library(tidyverse)
+library(car)
+library(data.table)
+```
+
+
+#Load in Data
+
+```{r}
+#Political Polarization Data for each state
+state_ideology <- read.csv("stateideology_v2018.csv")
+
+#US Women Peace and Security Index Data
+StatTable1 <- read.csv("StatTable1.csv")
+
+#Average Citizen & Government Ideology
+Average_Ideologies <- read.csv("Average_Ideologies.csv")
+
+#Lets View the data
+View(StatTable1)
+View(state_ideology)
+View(Average_Ideologies)
+```
+
+
+#Clean Data
+
+```{r}
+#Correct State column name, sometimes R can be weird and add extra characters
+state_ideology <- state_ideology %>%
+  rename(State = ï..State)
+
+#Outer join on both datasheets by column 'State'
+df_join = merge(state_ideology, 
+                StatTable1, by = "State")
+
+#Change column names to be organized
+df_join <- df_join %>%
+  rename(WPS_Index_rank = ï..US.WPS.Index.rank,
+         WPS_Index_Score_2020 = US.WPS.Index.2020,
+         Working_poor = Working.poor,
+         State_Legislature = State.legislaturec,
+         College_degree = College.degreec,
+         Reropuctive_healthcare_access = Reproductive.healthcare.access,
+         Legal_protection = Legal.protectiona,
+         Discriminatory_norms = Discriminatory.normsb,
+         Maternal_mortality = Maternal.mortalityc,
+         Intimate_partner_violence = Intimate.partner.violence,
+         Gun_deaths = Gun.deathsc.d,
+         Healthcare_affordability = Healthcare.affordability,
+         Community_safety = Community.safetyb
+         )
+
+#Remove any rows before 1980, my domain research suggests that political 
+#polarization began intensifying around 1980's
+df_join <- df_join %>% filter(year > 1979)
+
+#View dataframe to check 
+View(df_join)
+
+#Check to make sure column names were changed 
+colnames(df_join)
+
+#Omit any NA so regression analysis can run without error
+#df_join = na.exclude(df_join)
+df_join = na.omit(df_join)
+```
+
+Now lets do the same thing but join together women's rights scores with the average ideology of every state
+
+```{r}
+#Merge average ideologies and the Women Peace & Security Index Data
+State_Avg = merge(Average_Ideologies, 
+                StatTable1, by = "State")
+
+#Rename columns
+State_Avg <- State_Avg %>%
+  rename(WPS_Index_rank = ï..US.WPS.Index.rank,
+         WPS_Index_Score_2020 = US.WPS.Index.2020,
+         Working_poor = Working.poor,
+         State_Legislature = State.legislaturec,
+         College_degree = College.degreec,
+         Reropuctive_healthcare_access = Reproductive.healthcare.access,
+         Legal_protection = Legal.protectiona,
+         Discriminatory_norms = Discriminatory.normsb,
+         Maternal_mortality = Maternal.mortalityc,
+         Intimate_partner_violence = Intimate.partner.violence,
+         Gun_deaths = Gun.deathsc.d,
+         Healthcare_affordability = Healthcare.affordability,
+         Community_safety = Community.safetyb
+         )
+#Make sure column names look good
+colnames(State_Avg)
+
+#View data
+View(State_Avg)
+```
+
+#Great, Lets do some summary stats
+
+
+Summary Table for Ideologies and Women's Peace & Security Index Score
+```{r}
+#Generate summary statistics using package 'vtable'
+st(df_join)
+```
+
+0 represents 10 or less occurances within a state
+
+```{r}
+mean(df_join$Citizen_Ideology)
+mean(df_join$Government_Ideology)
+
+max(df_join$Citizen_Ideology)
+max(df_join$Government_Ideology)
+
+sd(df_join$Citizen_Ideology, na.rm = FALSE)
+sd(df_join$Government_Ideology, na.rm = FALSE)
+```
+That 97 is from Connecticut in 2016 but that same year their governments
+ideology score is at 66.10417
+
+Summary Table for states average ideologies from 1980-2017 & 
+Women's Peace & Security Index Score
+```{r}
+#Generate summary statistics using package 'vtable'
+st(State_Avg)
+```
+
+Something I found interesting from the summary table is how the highest average Citizen Ideology is a score of 80.85051, while the highest average for Government Ideology is 66.60768
+
+```{r}
+mean(State_Avg$Citizen_Ideology_Avg)#49.4287
+mean(State_Avg$Government_Ideology_Avg)#48.81121
+
+median(State_Avg$Citizen_Ideology_Avg)#47.28102
+median(State_Avg$Government_Ideology_Avg)#47.55501
+
+min(State_Avg$Citizen_Ideology_Avg)#25.4301
+min(State_Avg$Government_Ideology_Avg)#28.40026
+
+max(State_Avg$Citizen_Ideology_Avg)#80.85051
+max(State_Avg$Government_Ideology_Avg)#66.60768
+
+sd(State_Avg$Citizen_Ideology_Avg)#13.84766
+sd(State_Avg$Government_Ideology_Avg)#9.389889
+```
+
+
+
+#Regression Model Diagnostics
+
+
+The diagnostic plots show residuals in four different ways
+
+Residuals vs Fitted. Used to check the linear relationship assumptions.
+
+Normal Q-Q. Used to examine whether the residuals are normally distributed. It’s good if residuals points follow the straight dashed line.
+
+Scale-Location: Used to check the homoscedasticity  of the residuals. Horizontal line with equally spread points is a good indication of homoscedasticity.
+
+Residuals vs Leverage. Used to identify influential cases, that is extreme values that might influence the regression results when included or excluded from the analysis. This plot will be described further in the next sections.
+
+```{r}
+linearity_model <- lm(WPS_Index_Score_2020 ~ Government_Ideology,
+                      data = df_join)
+
+plot(linearity_model)
+```
+
+##########
+
+We deleted rows with years before 1980, which was done since literature suggests 
+Political polarization in US has started to Increase starting around that time frame. 
+I'm curious to see if the removal in those years impacts the correlation between 
+citizen and state legislatures ideology.
+
+
+Lets test this out 
+```{r}
+#Recreate original dataframe without the removal of years 1960-1980
+df_join_test = merge(x = state_ideology, 
+                y = StatTable1, by = "State", all=TRUE)
+
+#Now run Pearson's correlation test on all years
+cor.test(df_join_test$Citizen_Ideology, df_join_test$Government_Ideology, method = c("pearson"))
+```
+
+
+```{r}
+#Now lets use our new dataframe without years 1960-1980
+cor.test(df_join$Citizen_Ideology, df_join$Government_Ideology, method=c("pearson"))
+```
+
+
+
+
+There is a 10% increase in correlation by removing years 1960 to 1980 in states, yet the correlation
+is still vastly low for these ideologies suggesting there is no correlation
+#Who we vote for is important, but how the people we vote for vote is even more important
+
+
+Lets look at the correlations between the average citizen and government
+ideology within each state from 1980 to 2017 
+
+```{r}
+cor.test(State_Avg$Citizen_Ideology_Avg, State_Avg$Government_Ideology_Avg, method=c("pearson"))
+```
+
+Much higher than before, the averages over time have some correlation
+
+Before we begin we should check for multicolinearity using vif on our Independent
+and Dependent variables
+
+```{r}
+vif_lm <- lm(WPS_Index_Score_2020 ~ Government_Ideology
+             + Citizen_Ideology, data = df_join)
+
+vif(vif_lm)
+```
+
+#Scores are below 5 which is good, we can continue with the analysis
+
+
+#########
+
+
+```{r Main glm Avg Ideo}
+Avg_Ideologies_lm <- lm(WPS_Index_Score_2020 ~ Government_Ideology_Avg +
+                        Citizen_Ideology_Avg,
+                        data = State_Avg)
+
+
+summary(Avg_Ideologies_lm)
+```
+
+```{r}
+Avg_Ideologies_glm <- glm(WPS_Index_Score_2020 ~ Government_Ideology_Avg +
+                        Citizen_Ideology_Avg,
+                        data = State_Avg)
+
+summary(Avg_Ideologies_glm)
+```
+
+
+```{r}
+anova(Avg_Ideologies_lm, Avg_Ideo_IT_glm)
+```
+
+
+##########
+
+
+```{r Main glm Avg Ideo w IT}
+Avg_Ideo_IT_glm <- lm(WPS_Index_Score_2020 ~ Government_Ideology_Avg * Citizen_Ideology_Avg, data = State_Avg)
+
+
+summary(Avg_Ideo_IT_glm)
+```
+
+```{r}
+df_lm <- lm(WPS_Index_Score_2020 ~ Government_Ideology * Citizen_Ideology, data = df_join)
+
+summary(df_lm)
+```
+
+
+```{r}
+write.csv(df_join, "C:/Users/tamit/OneDrive/Desktop/Data/Joined.csv", row.names = FALSE)
+```
+
+
+
+
+
+
