@@ -19,6 +19,7 @@ library(broom)
 library(tidyverse)
 library(car)
 library(data.table)
+library(effectsize)
 ```
 
 
@@ -227,6 +228,8 @@ cor.test(State_Avg$Citizen_Ideology_Avg, State_Avg$Government_Ideology_Avg, meth
 
 Much higher than before, the averages over time have some correlation
 
+
+
 Before we begin we should check for multicolinearity using vif on our Independent
 and Dependent variables
 
@@ -243,6 +246,8 @@ vif(vif_lm)
 #########
 
 
+
+
 ```{r Main glm Avg Ideo}
 Avg_Ideologies_lm <- lm(WPS_Index_Score_2020 ~ Government_Ideology_Avg +
                         Citizen_Ideology_Avg,
@@ -253,6 +258,27 @@ summary(Avg_Ideologies_lm)
 ```
 
 ```{r}
+mean(State_Avg$Government_Ideology_Avg)#48.81121
+mean(State_Avg$Citizen_Ideology_Avg)#49.4287
+```
+
+
+
+#Get CIs for model
+```{r}
+confint(Avg_Ideologies_lm, 'Government_Ideology_Avg', level = 0.95)
+#Government Ideology
+#CI [-0.01134019, -0.002930852]
+```
+```{r}
+confint(Avg_Ideologies_lm, 'Citizen_Ideology_Avg', level = 0.95)
+#Citizen Ideology
+#CI [0.008529903, 0.01423215]
+```
+
+
+
+```{r}
 Avg_Ideologies_glm <- glm(WPS_Index_Score_2020 ~ Government_Ideology_Avg +
                         Citizen_Ideology_Avg,
                         data = State_Avg)
@@ -261,25 +287,21 @@ summary(Avg_Ideologies_glm)
 ```
 
 
-```{r}
-anova(Avg_Ideologies_lm, Avg_Ideo_IT_glm)
-```
-
 
 ##########
 
-
-```{r Main glm Avg Ideo w IT}
+#Check interaction terms
+```{r Main lm Avg Ideo w IT}
 Avg_Ideo_IT_glm <- lm(WPS_Index_Score_2020 ~ Government_Ideology_Avg * Citizen_Ideology_Avg, data = State_Avg)
 
 
 summary(Avg_Ideo_IT_glm)
 ```
 
-```{r}
-df_lm <- lm(WPS_Index_Score_2020 ~ Government_Ideology * Citizen_Ideology, data = df_join)
 
-summary(df_lm)
+#Compare both models
+```{r}
+anova(Avg_Ideologies_lm, Avg_Ideo_IT_glm)
 ```
 
 
